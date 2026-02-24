@@ -810,16 +810,24 @@ export const WorktreePlugin: Plugin = async (ctx) => {
 						return `No worktree associated with this session`
 					}
 
-					// Set pending delete for session.idle (atomic operation)
+					// Schedule delete to be processed on session.deleted (when the session is fully closed)
 					setPendingDelete(database, { branch: session.branch, path: session.path }, client)
 
-					return `Worktree marked for cleanup. It will be removed when this session ends.`
+					return `Worktree marked for cleanup. It will be removed when this session is closed.`
 				},
 			}),
 		},
 
 		event: async ({ event }: { event: Event }): Promise<void> => {
-			if (event.type !== "session.idle") return
+			// session.idle fires when the AI stops generating — the terminal and shell
+			// are still active at this point. Processing deletes here can remove the
+			// worktree directory while a shell process still has it as its CWD,
+			// causing "getcwd: cannot access parent directories" errors.
+			if (event.type === "session.idle") return
+
+			// session.deleted fires when the session is fully torn down.
+			// It is safe to clean up the worktree at this point.
+			if (event.type !== "session.deleted") return
 
 			// Handle pending delete
 			const pendingDelete = getPendingDelete(database)
