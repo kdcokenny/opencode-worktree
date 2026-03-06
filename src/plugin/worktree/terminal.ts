@@ -139,6 +139,7 @@ type LinuxTerminal =
 	| "wezterm"
 	| "alacritty"
 	| "ghostty"
+	| "warp-terminal"
 	| "foot"
 	| "gnome-terminal"
 	| "konsole"
@@ -557,6 +558,7 @@ function detectCurrentLinuxTerminal(): LinuxTerminal | null {
 
 	// TERM_PROGRAM fallback
 	const termProgram = env.TERM_PROGRAM?.toLowerCase()
+	if (termProgram === "warpterminal") return "warp-terminal"
 	if (termProgram === "foot") return "foot"
 
 	return null
@@ -676,6 +678,16 @@ export async function openLinuxTerminal(cwd: string, command?: string): Promise<
 					break
 				case "ghostty":
 					result = await tryTerminal("ghostty", ["ghostty", "-e", "bash", scriptPath])
+					break
+				case "warp-terminal":
+					result = await tryTerminal("warp-terminal", [
+						"warp-terminal",
+						"--working-directory",
+						cwd,
+						"-e",
+						"bash",
+						scriptPath,
+					])
 					break
 				case "foot":
 					result = await tryTerminal("foot", [
