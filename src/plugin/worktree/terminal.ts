@@ -85,12 +85,22 @@ ${script}
 }
 
 /** Build Warp launch configuration YAML for Linux. */
-function buildWarpLaunchConfigYaml(name: string, cwd: string, command?: string): string {
+function buildWarpLaunchConfigYaml(
+	name: string,
+	cwd: string,
+	configPath: string,
+	command?: string,
+): string {
 	const quotedName = JSON.stringify(name)
 	const quotedCwd = JSON.stringify(cwd)
-	const commandBlock = command
-		? `\n          commands:\n            - exec: ${JSON.stringify(command)}`
-		: ""
+	const cleanupCommand = `rm -f "${escapeBash(configPath)}"`
+	const commands = [cleanupCommand]
+	if (command) {
+		commands.push(command)
+	}
+	const commandsBlock = `\n          commands:${commands
+		.map((cmd) => `\n            - exec: ${JSON.stringify(cmd)}`)
+		.join("")}`
 
 	return `---
 name: ${quotedName}
@@ -99,7 +109,7 @@ windows:
   - active_tab_index: 0
     tabs:
       - layout:
-          cwd: ${quotedCwd}${commandBlock}
+          cwd: ${quotedCwd}${commandsBlock}
 `
 }
 
@@ -708,7 +718,7 @@ export async function openLinuxTerminal(cwd: string, command?: string): Promise<
 					const configName = `worktree-${Date.now()}-${Math.random().toString(36).slice(2)}`
 					const configDir = getWarpLaunchConfigDir()
 					const configPath = path.join(configDir, `${configName}.yaml`)
-					const configContent = buildWarpLaunchConfigYaml(configName, cwd, command)
+					const configContent = buildWarpLaunchConfigYaml(configName, cwd, configPath, command)
 
 					await fs.mkdir(configDir, { recursive: true })
 					await Bun.write(configPath, configContent)
