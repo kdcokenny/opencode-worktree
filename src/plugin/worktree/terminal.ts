@@ -257,9 +257,18 @@ export async function openTmuxWindow(options: {
 				const escapedCwd = escapeBash(cwd)
 				const escapedCommand = escapeBash(command)
 				const scriptContent = wrapWithSelfCleanup(
-					`cd "${escapedCwd}" || exit 1
+					`shell_path="\${SHELL:-/bin/bash}"
+shell_name="\${shell_path##*/}"
+
+if [ "$shell_name" = "bash" ] || [ "$shell_name" = "zsh" ]; then
+	exec "$shell_path" -lic "cd \"${escapedCwd}\" || exit 1
 ${escapedCommand}
-exec $SHELL`,
+exec \"$shell_path\" -li"
+fi
+
+cd "${escapedCwd}" || exit 1
+${escapedCommand}
+exec "$shell_path"`,
 				)
 				await Bun.write(scriptPath, scriptContent)
 				Bun.spawnSync(["chmod", "+x", scriptPath])
