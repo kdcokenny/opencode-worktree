@@ -229,6 +229,7 @@ type LinuxTerminal =
 	| "foot"
 	| "gnome-terminal"
 	| "konsole"
+	| "yakuake"
 	| "xfce4-terminal"
 	| "xdg-terminal-exec"
 	| "x-terminal-emulator"
@@ -781,16 +782,21 @@ export async function openMacOSTerminal(cwd: string, argv?: string[]): Promise<T
 function detectCurrentLinuxTerminal(): LinuxTerminal | null {
 	const env = linuxTerminalEnvSchema.parse(process.env)
 
+	const termProgram = env.TERM_PROGRAM?.toLowerCase()
+
 	// Check specific env vars first (most reliable)
 	if (env.KITTY_WINDOW_ID) return "kitty"
 	if (env.WEZTERM_PANE) return "wezterm"
 	if (env.ALACRITTY_WINDOW_ID) return "alacritty"
 	if (env.GHOSTTY_RESOURCES_DIR) return "ghostty"
 	if (env.GNOME_TERMINAL_SERVICE) return "gnome-terminal"
+
+	// Yakuake embeds Konsole, so it must be checked first.
+	if (termProgram === "yakuake") return "yakuake"
+
 	if (env.KONSOLE_VERSION) return "konsole"
 
 	// TERM_PROGRAM fallback
-	const termProgram = env.TERM_PROGRAM?.toLowerCase()
 	if (termProgram === "warpterminal") return "warp"
 	if (termProgram === "foot") return "foot"
 
@@ -997,6 +1003,23 @@ export async function openLinuxTerminal(cwd: string, argv?: string[]): Promise<T
 						cwd,
 						"-e",
 						"bash",
+						launchScriptPath,
+					])
+					break
+				}
+				case "yakuake": {
+					const launchScriptPath = await ensureScriptPath()
+					await tryTerminal("yakuake", [
+						"qdbus6",
+						"org.kde.yakuake",
+						"/yakuake/sessions",
+						"addSession"
+					]);
+					result = await tryTerminal("yakuake", [
+						"qdbus6",
+						"org.kde.yakuake",
+						"/yakuake/sessions",
+						"runCommand",
 						launchScriptPath,
 					])
 					break
